@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Photo Quest: Exposure Triad</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <h1 id="appTitle">Photo Quest: Exposure Triad</h1>
+
+    <div class="topbar-actions">
+      <label class="lang-label" for="langSelect" id="langLabel">Language</label>
+      <select id="langSelect" aria-labelledby="langLabel">
+        <option value="en">English</option>
+        <option value="es">Español</option>
+      </select>
+
+      <div class="glossary-toggle" id="glossaryToggle" aria-expanded="false" tabindex="0">Glossary ▸</div>
+    </div>
+  </header>
+
+  <main class="grid">
+    <!-- Left: Scene + Image -->
+    <section class="panel">
+      <h2 id="sceneTitle">Scene</h2>
+      <p id="sceneBrief" class="scene-brief"></p>
+      <figure class="photo-frame">
+        <img id="sceneImg" src="" alt="" />
+        <figcaption id="photoCredit" class="credit"></figcaption>
+      </figure>
+      <div class="tags" id="sceneTags" aria-live="polite"></div>
+    </section>
+
+    <!-- Right: Controls + Feedback -->
+    <section class="panel">
+      <h2 id="settingsHeading">Choose Your Settings</h2>
+
+      <div class="controls">
+        <label>
+          <span id="apertureLabel">Aperture (f/stop)</span>
+          <select id="apertureSelect"></select>
+        </label>
+
+        <label>
+          <span id="shutterLabel">Shutter Speed</span>
+          <select id="shutterSelect"></select>
+        </label>
+
+        <label>
+          <span id="isoLabel">ISO</span>
+          <select id="isoSelect"></select>
+        </label>
+
+        <button id="checkBtn" class="primary">Capture!</button>
+        <button id="nextBtn" class="ghost" title="New random scene (keeps score)">Next Scene ↻</button>
+      </div>
+
+      <div class="feedback" id="feedback" aria-live="polite"></div>
+
+      <div class="scores">
+        <div class="score-item"><strong id="roundScoreLabel">Round Score:</strong> <span id="roundScore">0</span></div>
+        <div class="score-item"><strong id="totalScoreLabel">Total:</strong> <span id="totalScore">0</span></div>
+        <div class="score-item"><strong id="clearedLabel">Scenes Cleared:</strong> <span id="clearedCount">0</span></div>
+      </div>
+
+      <h3 id="histHeading">Histogram (simulated)</h3>
+      <div class="histogram" aria-hidden="true">
+        <div class="bar" id="h1"></div>
+        <div class="bar" id="h2"></div>
+        <div class="bar" id="h3"></div>
+        <div class="bar" id="h4"></div>
+        <div class="bar" id="h5"></div>
+      </div>
+
+      <details class="why">
+        <summary id="whySummary">Why did I get this result?</summary>
+        <ul id="whyList"></ul>
+      </details>
+    </section>
+  </main>
+
+  <!-- Glossary Drawer -->
+  <aside id="glossary" class="drawer" aria-hidden="true">
+    <div class="drawer-inner">
+      <h2 id="glossaryTitle">Glossary</h2>
+      <ul id="glossaryList"></ul>
+      <button id="closeGlossary" class="ghost">Close</button>
+    </div>
+  </aside>
+
+  <footer class="footer">
+    <small id="tipText">Tip: Hover (or focus) highlighted terms in scene text to see quick definitions.</small>
+  </footer>
+
+  <script src="game.js"></script>
+</body>
+</html>
