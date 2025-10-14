@@ -1,5 +1,7 @@
 /* ===========================================
  *  Photo Quest: Exposure Triad (Bilingual)
+ *  - Robust Capture button binding
+ *  - Auto-open "Why" panel after grading
  * =========================================== */
 
 /* ----------------- Language ----------------- */
@@ -48,7 +50,6 @@ const STRINGS = {
     why_motion_ok: "Motion: appropriate for the scene.",
     why_iso_low: min => `ISO: a bit low for this light (risk underexposure); suggested ≥ ${min}.`,
     why_iso_high: max => `ISO: high (more noise); suggested ≤ ${max}.`,
-
     // Labels for descriptors
     shallow: "shallow",
     deep: "deep",
@@ -58,7 +59,6 @@ const STRINGS = {
     low: "low",
     moderate: "moderate",
     high: "high",
-
     // Glossary
     glossary: {
       "Aperture": "The opening in a camera lens that controls how much light enters. Wide aperture (low f-number) = shallow depth of field.",
@@ -75,7 +75,7 @@ const STRINGS = {
     }
   },
   es: {
-    appTitle: "Photo Quest: Triada de Exposición",
+    appTitle: "Photo Quest: Tríada de Exposición",
     language: "Idioma",
     glossaryToggle: "Glosario ▸",
     glossaryTitle: "Glosario",
@@ -113,7 +113,6 @@ const STRINGS = {
     why_motion_ok: "Movimiento: adecuado para la escena.",
     why_iso_low: min => `ISO: un poco baja para esta luz (riesgo de subexposición); sugerida ≥ ${min}.`,
     why_iso_high: max => `ISO: alta (más ruido); sugerida ≤ ${max}.`,
-
     // Labels for descriptors
     shallow: "poca",
     deep: "mucha",
@@ -123,7 +122,6 @@ const STRINGS = {
     low: "bajo",
     moderate: "moderado",
     high: "alto",
-
     // Glossary
     glossary: {
       "Apertura": "La abertura del objetivo que controla cuánta luz entra. Apertura amplia (número f bajo) = poca profundidad de campo.",
@@ -147,10 +145,7 @@ const t = (key, ...args) => {
 };
 const tg = (term) => STRINGS[LANG].glossary[term];
 
-/* ----------------- Glossary bridge keys -----------------
-   For inline chips in scene briefs, we keep neutral keys.
-   We'll provide localized titles (tooltips) using the current language.
-----------------------------------------------------------*/
+/* ----------------- Glossary bridge keys ----------------- */
 const GLOSSARY_KEYS = {
   Aperture: { en: "Aperture", es: "Apertura" },
   ISO: { en: "ISO", es: "ISO" },
@@ -165,9 +160,7 @@ const GLOSSARY_KEYS = {
   Contrast: { en: "Contrast", es: "Contraste" }
 };
 
-/* ----------------- Scene Library -----------------
-   Each scene now carries bilingual brief/tags.
----------------------------------------------------*/
+/* ----------------- Scene Library (bilingual) ----------------- */
 const scenes = [
   {
     id: "sunny_portrait",
@@ -226,12 +219,11 @@ const scenes = [
   }
 ];
 
-/* ----------------- Controls & Nodes ----------------- */
-const $ = s => document.querySelector(s);
+/* ----------------- Nodes ----------------- */
+const $ = sel => document.querySelector(sel);
 const apertureSelect = $("#apertureSelect");
 const shutterSelect  = $("#shutterSelect");
 const isoSelect      = $("#isoSelect");
-const checkBtn       = $("#checkBtn");
 const nextBtn        = $("#nextBtn");
 const feedback       = $("#feedback");
 const roundScore     = $("#roundScore");
@@ -243,9 +235,10 @@ const sceneImg       = $("#sceneImg");
 const photoCredit    = $("#photoCredit");
 const sceneTags      = $("#sceneTags");
 const whyList        = $("#whyList");
+const whyDetails     = document.querySelector(".why");  // <details>
 const bars = [$("#h1"), $("#h2"), $("#h3"), $("#h4"), $("#h5")];
 
-// Header & labels needing translation
+// Header & labels (for i18n)
 const appTitle = $("#appTitle");
 const langLabel = $("#langLabel");
 const langSelect = $("#langSelect");
@@ -273,6 +266,7 @@ const SHUTTERS = ["1/4000","1/2000","1/1000","1/500","1/250","1/125","1/60","1/3
 const ISOS = [100,200,400,800,1600,3200,6400];
 
 function populateSelect(el, arr, formatFn = (v)=>String(v)){
+  if (!el) return;
   el.innerHTML = arr.map(v=>`<option value="${v}">${formatFn(v)}</option>`).join("");
 }
 populateSelect(apertureSelect, APERTURES, f => `f/${f}`);
@@ -320,19 +314,13 @@ function noiseLevel(iso){
   if (iso <= 800) return "moderate";
   return "high";
 }
-
 function annotateTerms(html){
-  // Convert <em data-term="X">text</em> to a chip with a localized tooltip if possible
   return html.replace(/<em data-term="([^"]+)">([^<]+)<\/em>/g, (m,key,text)=>{
-    // key might be "ISO" or phrase like "Shutter Speed" or "Depth of Field"
-    // For "Depth of Field" we map to either concept (Aperture) or leave as is with a generic hint.
-    // We'll show a tooltip using the closest glossary match.
     const lookup = GLOSSARY_KEYS[key] ? (LANG === "es" ? GLOSSARY_KEYS[key].es : GLOSSARY_KEYS[key].en) : key;
     const def = STRINGS[LANG].glossary[lookup] || STRINGS[LANG].glossary[key] || "";
     return `<span class="chip" title="${def.replace(/"/g,'&quot;')}">${text}</span>`;
   });
 }
-
 function titleFromId(id){
   return id.replace(/_/g, " ").replace(/\b\w/g, m=>m.toUpperCase());
 }
@@ -344,10 +332,12 @@ function pickScene(){
   feedback.innerHTML = "";
   roundScore.textContent = "0";
   whyList.innerHTML = "";
+  if (whyDetails) whyDetails.open = false;
   renderHistogram(0);
-  apertureSelect.value = "5.6";
-  shutterSelect.value  = "1/125";
-  isoSelect.value      = "200";
+  // sensible defaults
+  if (apertureSelect) apertureSelect.value = "5.6";
+  if (shutterSelect)  shutterSelect.value  = "1/125";
+  if (isoSelect)      isoSelect.value      = "200";
 }
 function renderSceneText(){
   const useBrief = LANG === "es" ? currentScene.brief_es : currentScene.brief_en;
@@ -358,7 +348,7 @@ function renderSceneText(){
   sceneImg.src = currentScene.img;
   sceneImg.alt = currentScene.alt;
   photoCredit.textContent = currentScene.credit;
-  sceneTags.innerHTML = useTags.map(tg=>`<span class="chip">${tg}</span>`).join("");
+  sceneTags.innerHTML = useTags.map(tag=>`<span class="chip">${tag}</span>`).join("");
 }
 
 /* ----------------- Scoring ----------------- */
@@ -413,9 +403,9 @@ function grade(){
 
   points = Math.round(clamp(points, 0, 100));
 
-  const noise = t(noiseLevel(i));         // localized descriptor
-  const dofTxt = t(dofDescriptor(a));     // localized descriptor
-  const motTxt = t(motionDescriptor(s));  // localized descriptor
+  const noise = t(noiseLevel(i));
+  const dofTxt = t(dofDescriptor(a));
+  const motTxt = t(motionDescriptor(s));
 
   let expoText = "";
   if (Math.abs(deltaEV) < 0.3) expoText = `<span class="ok">${t("exposure_spot")}</span>`;
@@ -442,15 +432,10 @@ function grade(){
   } else {
     feedback.innerHTML += `<br><br><span class="err">${t("try_adjust")}</span>`;
   }
-}
 
-/* ----------------- UI events ----------------- */
-checkBtn.addEventListener("click", grade);
-nextBtn.addEventListener("click", pickScene);
-document.addEventListener("keydown", (e)=>{
-  if (e.key === "Enter" && !e.ctrlKey && !e.metaKey) grade();
-  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "enter") pickScene();
-});
+  // Auto-open the Why panel so students see the reasoning
+  if (whyDetails) whyDetails.open = true;
+}
 
 /* ----------------- Glossary Drawer ----------------- */
 function openGlossary(){
@@ -462,16 +447,15 @@ function closeGlossary(){
   glossaryToggle.setAttribute("aria-expanded","false");
 }
 function renderGlossary(){
-  // Build a language-appropriate list. Show the localized term + definition.
   const entries = STRINGS[LANG].glossary;
   glossaryList.innerHTML = Object.entries(entries)
     .map(([term,def]) => `<li><strong>${term}:</strong> ${def}</li>`)
     .join("");
 }
-glossaryToggle.addEventListener("click", openGlossary);
-glossaryToggle.addEventListener("keydown", (e)=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); openGlossary(); }});
-closeGlossBtn.addEventListener("click", closeGlossary);
-drawer.addEventListener("click", (e)=>{ if(e.target===drawer) closeGlossary(); });
+glossaryToggle?.addEventListener("click", openGlossary);
+glossaryToggle?.addEventListener("keydown", (e)=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); openGlossary(); }});
+closeGlossBtn?.addEventListener("click", closeGlossary);
+drawer?.addEventListener("click", (e)=>{ if(e.target===drawer) closeGlossary(); });
 
 /* ----------------- Language switching ----------------- */
 function applyLanguage(){
@@ -484,12 +468,13 @@ function applyLanguage(){
   glossaryTitle.textContent = t("glossaryTitle");
   closeGlossBtn.textContent = t("glossaryClose");
 
-  sceneTitle.textContent = t("scene"); // will be overwritten by renderSceneText()
+  sceneTitle.textContent = t("scene");
   settingsHeading.textContent = t("settingsHeading");
   apertureLabel.textContent = t("apertureLabel");
   shutterLabel.textContent = t("shutterLabel");
   isoLabel.textContent = t("isoLabel");
-  checkBtn.textContent = t("capture");
+  const captureBtn = document.querySelector("#checkBtn, #saveBtn, [data-action='capture']");
+  if (captureBtn) captureBtn.textContent = t("capture");
   nextBtn.textContent = t("nextScene");
   roundScoreLabel.textContent = t("roundScore");
   totalScoreLabel.textContent = t("totalScore");
@@ -507,7 +492,35 @@ langSelect.addEventListener("change", () => {
   applyLanguage();
 });
 
+/* ----------------- Robust Capture Button Binding ----------------- */
+function bindControls(){
+  // Support multiple possible IDs/attrs for the capture button
+  const captureBtn = document.querySelector("#checkBtn, #saveBtn, [data-action='capture']");
+  if (!captureBtn) {
+    console.warn("Capture button not found. Ensure the button has id='checkBtn' OR id='saveBtn' OR data-action='capture'.");
+  } else {
+    captureBtn.addEventListener("click", () => {
+      grade();
+      if (whyDetails) whyDetails.open = true;
+    });
+  }
+
+  nextBtn?.addEventListener("click", pickScene);
+
+  // Keyboard shortcuts
+  document.addEventListener("keydown", (e)=>{
+    if (e.key === "Enter" && !e.ctrlKey && !e.metaKey) {
+      grade();
+      if (whyDetails) whyDetails.open = true;
+    }
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "enter") {
+      pickScene();
+    }
+  });
+}
+
 /* ----------------- Boot ----------------- */
-applyLanguage(); // sets UI strings
-renderGlossary();
-pickScene();
+applyLanguage();   // set UI strings based on LANG
+renderGlossary();  // build glossary contents
+bindControls();    // attach handlers (robust)
+pickScene();       // start with a random scene
